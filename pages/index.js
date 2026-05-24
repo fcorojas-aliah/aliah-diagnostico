@@ -9,6 +9,8 @@ import Quiz from '../components/Quiz';
 import ProfileForm from '../components/ProfileForm';
 import Dash from '../components/Dashboard';
 
+export const getServerSideProps = async () => ({ props: {} });
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -138,12 +140,12 @@ export default function App() {
     const profilesAll = data.map(buildProfileText).join("\n\n---\n\n");
     const n = data.length;
     const prompts = {
-      manual: `Con base en el siguiente perfil, genera un Manual de Operaciones para este puesto:\n\n${profileLast}\n\nIncluye: 1.Misión del Puesto 2.Responsabilidades (tabla) 3.Mapa de Interfaces (tabla) 4.Protocolos de Comunicación 5.KPIs (tabla) 6.OKRs Trimestrales 7.Criterios de Escalamiento 8.Brecha Actual vs Ideal 9.Quick Wins`,
-      matriz: `Con base en el diagnóstico de ${n} colaboradores, genera la Matriz de Decisiones:\n\n${profilesAll}\n\nIncluye: 1.Principios de Gobernanza 2.Niveles de Autoridad 3.Matriz por Área (tabla) 4.Zonas Grises 5.Protocolo de Escalamiento 6.Reglas de Oro`,
-      kpis: `Con base en el diagnóstico de ${n} colaboradores, genera el Sistema de KPIs:\n\n${profilesAll}\n\nIncluye: 1.KPIs Corporativos (tabla) 2.KPIs por Área (tabla) 3.KPIs de Coordinación 4.OKRs Empresa 5.OKRs Áreas Críticas 6.Cadencia de Revisión`,
-      organigrama: `Con base en el diagnóstico de ${n} colaboradores, genera la Estructura Organizacional:\n\n${profilesAll}\n\nIncluye: 1.Estructura Jerárquica 2.Posiciones Clave (tabla) 3.Flujos Críticos 4.Comités/Reuniones (tabla) 5.Matriz RACI 6.Plan 90 días`,
-      mejoras: `Con base en el diagnóstico de ${n} colaboradores, genera el Plan de Mejoras:\n\n${profilesAll}\n\nIncluye: 1.Diagnóstico Ejecutivo 2.Brechas por Área 3.Iniciativas Prioritarias (tabla) 4.Quick Wins 5.Cambios Críticos 6.Roadmap 6 meses 7.Indicadores de Éxito`,
-      comparativo: `Con base en el diagnóstico de ${n} colaboradores, genera el Análisis Comparativo:\n\n${profilesAll}\n\nIncluye: 1.Brechas por Colaborador 2.Patrones Comunes 3.Mapa de Dependencias 4.Coherencia de Flujos 5.Recomendaciones de Rediseño`,
+      manual: `Con base en el siguiente perfil, genera un Manual de Operaciones para este puesto:\n\n${profileLast}\n\nIncluye: 1.MisiÃ³n del Puesto 2.Responsabilidades (tabla) 3.Mapa de Interfaces (tabla) 4.Protocolos de ComunicaciÃ³n 5.KPIs (tabla) 6.OKRs Trimestrales 7.Criterios de Escalamiento 8.Brecha Actual vs Ideal 9.Quick Wins`,
+      matriz: `Con base en el diagnÃ³stico de ${n} colaboradores, genera la Matriz de Decisiones:\n\n${profilesAll}\n\nIncluye: 1.Principios de Gobernanza 2.Niveles de Autoridad 3.Matriz por Ãrea (tabla) 4.Zonas Grises 5.Protocolo de Escalamiento 6.Reglas de Oro`,
+      kpis: `Con base en el diagnÃ³stico de ${n} colaboradores, genera el Sistema de KPIs:\n\n${profilesAll}\n\nIncluye: 1.KPIs Corporativos (tabla) 2.KPIs por Ãrea (tabla) 3.KPIs de CoordinaciÃ³n 4.OKRs Empresa 5.OKRs Ãreas CrÃ­ticas 6.Cadencia de RevisiÃ³n`,
+      organigrama: `Con base en el diagnÃ³stico de ${n} colaboradores, genera la Estructura Organizacional:\n\n${profilesAll}\n\nIncluye: 1.Estructura JerÃ¡rquica 2.Posiciones Clave (tabla) 3.Flujos CrÃ­ticos 4.ComitÃ©s/Reuniones (tabla) 5.Matriz RACI 6.Plan 90 dÃ­as`,
+      mejoras: `Con base en el diagnÃ³stico de ${n} colaboradores, genera el Plan de Mejoras:\n\n${profilesAll}\n\nIncluye: 1.DiagnÃ³stico Ejecutivo 2.Brechas por Ãrea 3.Iniciativas Prioritarias (tabla) 4.Quick Wins 5.Cambios CrÃ­ticos 6.Roadmap 6 meses 7.Indicadores de Ãxito`,
+      comparativo: `Con base en el diagnÃ³stico de ${n} colaboradores, genera el AnÃ¡lisis Comparativo:\n\n${profilesAll}\n\nIncluye: 1.Brechas por Colaborador 2.Patrones Comunes 3.Mapa de Dependencias 4.Coherencia de Flujos 5.Recomendaciones de RediseÃ±o`,
     };
     try {
       const result = await callAI(AI_SYSTEM, prompts[tipo] || "", 2200);
@@ -152,7 +154,7 @@ export default function App() {
     setGload(false);
   };
 
-  // ═══ CSS ═══
+  // âââ CSS âââ
   const css = `
     @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap');
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -208,7 +210,7 @@ export default function App() {
 
   if (authLoading) return <div style={{ minHeight: "100vh", background: S.bg, display: "flex", alignItems: "center", justifyContent: "center" }}><style>{css}</style><div className="spin" /></div>;
 
-  // ═══ HEADER ═══
+  // âââ HEADER âââ
   const Header = () => (
     <div style={{ borderBottom: `1px solid ${S.brd2}`, padding: "14px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -218,7 +220,7 @@ export default function App() {
         <div>
           <div style={{ fontSize: 13, fontWeight: 600, color: S.chalk, letterSpacing: ".04em" }}>ALIAH DEVELOPMENTS</div>
           <div className="mono" style={{ fontSize: 8, color: S.g3 }}>
-            {fase === "inicio" ? "REGISTRO DE COLABORADOR" : fase === "quiz" ? `DIAGNÓSTICO · PREGUNTA ${qi + 1} / ${total}` : fase === "perfil" ? "PERFIL PERSONAL" : fase === "done" ? "DIAGNÓSTICO COMPLETADO" : "DASHBOARD EJECUTIVO"}
+            {fase === "inicio" ? "REGISTRO DE COLABORADOR" : fase === "quiz" ? `DIAGNÃSTICO Â· PREGUNTA ${qi + 1} / ${total}` : fase === "perfil" ? "PERFIL PERSONAL" : fase === "done" ? "DIAGNÃSTICO COMPLETADO" : "DASHBOARD EJECUTIVO"}
           </div>
         </div>
       </div>
@@ -234,15 +236,15 @@ export default function App() {
     </div>
   );
 
-  // ═══ DONE SCREEN ═══
+  // âââ DONE SCREEN âââ
   const Done = () => (
     <div className="au" style={{ maxWidth: 480, margin: "0 auto", padding: "100px 20px", textAlign: "center" }}>
-      <div style={{ fontSize: 44, marginBottom: 18, color: S.olive2 }}>◎</div>
-      <h1 className="display" style={{ fontSize: 38, fontWeight: 300, marginBottom: 12, color: S.chalk }}>Diagnóstico Completado</h1>
+      <div style={{ fontSize: 44, marginBottom: 18, color: S.olive2 }}>â</div>
+      <h1 className="display" style={{ fontSize: 38, fontWeight: 300, marginBottom: 12, color: S.chalk }}>DiagnÃ³stico Completado</h1>
       <div style={{ width: 32, height: 1, background: S.olive, margin: "0 auto 18px" }} />
-      <p style={{ fontSize: 15, color: S.g1, lineHeight: 1.75, marginBottom: 32 }}>Gracias, <strong style={{ color: S.chalk }}>{info.nombre}</strong>. Tu perfil y diagnóstico fueron registrados exitosamente.</p>
+      <p style={{ fontSize: 15, color: S.g1, lineHeight: 1.75, marginBottom: 32 }}>Gracias, <strong style={{ color: S.chalk }}>{info.nombre}</strong>. Tu perfil y diagnÃ³stico fueron registrados exitosamente.</p>
       <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-        <button className="btn btn-p" onClick={() => setFase("dash")}>VER DASHBOARD →</button>
+        <button className="btn btn-p" onClick={() => setFase("dash")}>VER DASHBOARD â</button>
         <button className="btn btn-g" onClick={resetForm}>+ NUEVO COLABORADOR</button>
       </div>
     </div>
@@ -251,10 +253,10 @@ export default function App() {
   return (
     <>
       <Head>
-        <title>Diagnóstico Organizacional — Aliah Developments</title>
-        <meta name="description" content="Sistema de diagnóstico organizacional para levantamiento de procesos y estructura" />
+        <title>DiagnÃ³stico Organizacional â Aliah Developments</title>
+        <meta name="description" content="Sistema de diagnÃ³stico organizacional para levantamiento de procesos y estructura" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◈</text></svg>" />
+        <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>â</text></svg>" />
       </Head>
       <style>{css}</style>
       <div style={{ minHeight: "100vh", background: S.bg }}>
