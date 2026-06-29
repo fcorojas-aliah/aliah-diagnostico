@@ -1,19 +1,27 @@
 import Head from 'next/head';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { STORAGE_KEY, AUTH_KEY, PREGUNTAS, EMPTY_INFO, S, AI_SYSTEM } from '../lib/constants';
+import { STORAGE_KEY, AUTH_KEY, PREGUNTAS, EMPTY_INFO, S, AI_SYSTEM, ROLES } from '../lib/constants';
 import { loginUser, saveToSupabase, loadFromSupabase, subscribeRealtime, filterByRole, buildProfileText, callAI } from '../lib/helpers';
 import Login from '../components/Login';
+import Register from '../components/Register';
 import Inicio from '../components/Inicio';
 import Quiz from '../components/Quiz';
 import ProfileForm from '../components/ProfileForm';
 import Dash from '../components/Dashboard';
 
-export const getServerSideProps = async () => ({ props: {} });
+// ─── LOGO SVG SMALL (para el Header) ───
+const LogoSmall = () => (
+  <svg viewBox="0 0 400 400" width={30} height={30} fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M200 20 L310 340 L270 340 L245 265 L155 265 L130 340 L90 340 Z M180 230 L220 230 L200 165 Z" fill={S.olive2} />
+    <path d="M120 310 Q90 340 95 370 Q100 400 130 395 Q155 390 160 360 Q165 330 140 310 Q130 300 120 310 Z" fill={S.olive2} />
+  </svg>
+);
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [inviteCode, setInviteCode] = useState(null);
   const [fase, setFase] = useState("inicio");
   const [info, setInfo] = useState({ ...EMPTY_INFO });
   const [resps, setResps] = useState({});
@@ -28,8 +36,19 @@ export default function App() {
   const [gerr, setGerr] = useState({});
   const [profileStep, setProfileStep] = useState(0);
 
-  // Check auth on mount
+  // Check auth + invite code on mount
   useEffect(() => {
+    // Detect invite code in URL
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const invite = params.get('invite');
+      if (invite) {
+        setInviteCode(invite);
+        // Clean URL without reloading
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }
+    // Check saved auth
     try {
       const saved = localStorage.getItem(AUTH_KEY);
       if (saved) setUser(JSON.parse(saved));
@@ -73,17 +92,24 @@ export default function App() {
     return u;
   };
 
+  const handleRegistered = (newUser) => {
+    setUser(newUser);
+    setInviteCode(null);
+    try { localStorage.setItem(AUTH_KEY, JSON.stringify(newUser)); } catch {}
+  };
+
   const handleLogout = () => {
     setUser(null);
     try { localStorage.removeItem(AUTH_KEY); } catch {}
     setFase("inicio");
   };
 
-  // Role-based filtering
+  // Role-based permissions using ROLES constant
   const filteredAll = filterByRole(all, user);
-  const canSeePersonal = user?.rol === 'ceo';
-  const canSeeDashboard = user?.rol === 'ceo' || user?.rol === 'director';
-  const canManageUsers = user?.rol === 'ceo';
+  const rolePerms = user ? (ROLES[user.rol] || ROLES.usuario) : ROLES.usuario;
+  const canSeePersonal = rolePerms.canSeePersonal;
+  const canSeeDashboard = rolePerms.canSeeDashboard;
+  const canManageUsers = rolePerms.canManageUsers;
 
   // Quiz logic
   const p = PREGUNTAS[qi];
@@ -131,21 +157,15 @@ export default function App() {
 
   // AI generation
   const generate = async (tipo) => {
-    if (gout[tipo]) return;
-    setGload(true); setGerr(prev => ({ ...prev, [tipo]: "" }));
-    const data = filteredAll;
-    const last = data[data.length - 1];
-    if (!last) { setGload(false); return; }
-    const profileLast = buildProfileText(last);
-    const profilesAll = data.map(buildProfileText).join("\n\n---\n\n");
-    const n = data.length;
+    setGload(true); setGerr(prev => ({ ...prev, [tipo]: null }));
+    const profiles = filteredAll.map(r => buildProfileText(r)).join("\n\n---\n\n");
     const prompts = {
-      manual: `Con base en el siguiente perfil, genera un Manual de Operaciones para este puesto:\n\n${profileLast}\n\nIncluye: 1.MisiÃ³n del Puesto 2.Responsabilidades (tabla) 3.Mapa de Interfaces (tabla) 4.Protocolos de ComunicaciÃ³n 5.KPIs (tabla) 6.OKRs Trimestrales 7.Criterios de Escalamiento 8.Brecha Actual vs Ideal 9.Quick Wins`,
-      matriz: `Con base en el diagnÃ³stico de ${n} colaboradores, genera la Matriz de Decisiones:\n\n${profilesAll}\n\nIncluye: 1.Principios de Gobernanza 2.Niveles de Autoridad 3.Matriz por Ãrea (tabla) 4.Zonas Grises 5.Protocolo de Escalamiento 6.Reglas de Oro`,
-      kpis: `Con base en el diagnÃ³stico de ${n} colaboradores, genera el Sistema de KPIs:\n\n${profilesAll}\n\nIncluye: 1.KPIs Corporativos (tabla) 2.KPIs por Ãrea (tabla) 3.KPIs de CoordinaciÃ³n 4.OKRs Empresa 5.OKRs Ãreas CrÃ­ticas 6.Cadencia de RevisiÃ³n`,
-      organigrama: `Con base en el diagnÃ³stico de ${n} colaboradores, genera la Estructura Organizacional:\n\n${profilesAll}\n\nIncluye: 1.Estructura JerÃ¡rquica 2.Posiciones Clave (tabla) 3.Flujos CrÃ­ticos 4.ComitÃ©s/Reuniones (tabla) 5.Matriz RACI 6.Plan 90 dÃ­as`,
-      mejoras: `Con base en el diagnÃ³stico de ${n} colaboradores, genera el Plan de Mejoras:\n\n${profilesAll}\n\nIncluye: 1.DiagnÃ³stico Ejecutivo 2.Brechas por Ãrea 3.Iniciativas Prioritarias (tabla) 4.Quick Wins 5.Cambios CrÃ­ticos 6.Roadmap 6 meses 7.Indicadores de Ãxito`,
-      comparativo: `Con base en el diagnÃ³stico de ${n} colaboradores, genera el AnÃ¡lisis Comparativo:\n\n${profilesAll}\n\nIncluye: 1.Brechas por Colaborador 2.Patrones Comunes 3.Mapa de Dependencias 4.Coherencia de Flujos 5.Recomendaciones de RediseÃ±o`,
+      manual: `Con base en estos perfiles del equipo, genera un MANUAL DE OPERACIONES completo:\n\n${profiles}`,
+      matriz: `Con base en estos perfiles, genera una MATRIZ DE RESPONSABILIDADES (RACI):\n\n${profiles}`,
+      kpis: `Con base en estos perfiles, genera un TABLERO DE KPIs por área:\n\n${profiles}`,
+      organigrama: `Con base en estos perfiles, genera una propuesta de ORGANIGRAMA funcional:\n\n${profiles}`,
+      mejoras: `Con base en estos perfiles, genera un PLAN DE MEJORAS priorizadas:\n\n${profiles}`,
+      comparativo: `Con base en estos perfiles, genera un ANÁLISIS COMPARATIVO entre áreas:\n\n${profiles}`,
     };
     try {
       const result = await callAI(AI_SYSTEM, prompts[tipo] || "", 2200);
@@ -154,7 +174,7 @@ export default function App() {
     setGload(false);
   };
 
-  // âââ CSS âââ
+  // ═══ CSS ═══
   const css = `
     @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap');
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -174,9 +194,9 @@ export default function App() {
     .card-hi{border-color:${S.brd}}
     textarea.inp,input.inp{width:100%;background:${S.s2};border:1px solid ${S.brd2};color:${S.chalk};border-radius:${S.r};padding:12px;font-size:14px;font-family:'DM Sans',sans-serif;resize:vertical;outline:none;transition:border .15s}
     textarea.inp{min-height:80px}textarea.inp:focus,input.inp:focus{border-color:${S.olive}}
-    textarea.inp::placeholder,input.inp::placeholder{color:${S.g3}}
+    textarea.inp::placeholder,input.inp::placeholder{color:${S.g2}}
     input.iline{width:100%;background:transparent;border:none;border-bottom:1px solid ${S.brd2};color:${S.chalk};padding:10px 0;font-size:17px;font-family:'DM Sans',sans-serif;outline:none}
-    input.iline:focus{border-bottom-color:${S.olive}}input.iline::placeholder{color:${S.g3}}
+    input.iline:focus{border-bottom-color:${S.olive}}input.iline::placeholder{color:${S.g2}}
     input.date-inp{background:${S.s2};border:1px solid ${S.brd2};color:${S.chalk};border-radius:${S.r};padding:10px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;width:100%}
     input.date-inp:focus{border-color:${S.olive}}
     .scl{flex:1;padding:9px 4px;background:${S.s2};border:1px solid ${S.brd2};color:${S.g2};border-radius:${S.r};cursor:pointer;font-size:10px;text-align:center;transition:all .13s;font-family:'DM Sans',sans-serif}
@@ -210,17 +230,16 @@ export default function App() {
 
   if (authLoading) return <div style={{ minHeight: "100vh", background: S.bg, display: "flex", alignItems: "center", justifyContent: "center" }}><style>{css}</style><div className="spin" /></div>;
 
-  // âââ HEADER âââ
+  // ═══ HEADER ═══
+  const rolLabel = user ? (ROLES[user.rol]?.label || 'USUARIO') : '';
   const Header = () => (
     <div style={{ borderBottom: `1px solid ${S.brd2}`, padding: "14px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <div style={{ width: 32, height: 32, borderRadius: "50%", background: S.s1, border: `1px solid ${S.brd}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <span style={{ color: S.olive2, fontWeight: 600, fontSize: 14 }}>A</span>
-        </div>
+        <LogoSmall />
         <div>
           <div style={{ fontSize: 13, fontWeight: 600, color: S.chalk, letterSpacing: ".04em" }}>ALIAH DEVELOPMENTS</div>
           <div className="mono" style={{ fontSize: 8, color: S.g3 }}>
-            {fase === "inicio" ? "REGISTRO DE COLABORADOR" : fase === "quiz" ? `DIAGNÃSTICO Â· PREGUNTA ${qi + 1} / ${total}` : fase === "perfil" ? "PERFIL PERSONAL" : fase === "done" ? "DIAGNÃSTICO COMPLETADO" : "DASHBOARD EJECUTIVO"}
+            {fase === "inicio" ? "REGISTRO DE COLABORADOR" : fase === "quiz" ? `DIAGNÓSTICO · PREGUNTA ${qi + 1} / ${total}` : fase === "perfil" ? "PERFIL PERSONAL" : fase === "done" ? "DIAGNÓSTICO COMPLETADO" : "DASHBOARD EJECUTIVO"}
           </div>
         </div>
       </div>
@@ -228,7 +247,7 @@ export default function App() {
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <div style={{ textAlign: "right" }}>
             <div style={{ fontSize: 12, color: S.chalk }}>{user.nombre}</div>
-            <div className="mono" style={{ fontSize: 8, color: S.olive2 }}>{user.rol === 'ceo' ? 'CEO / RRHH' : user.rol === 'director' ? 'DIRECTOR / MANAGER' : 'USUARIO'}</div>
+            <div className="mono" style={{ fontSize: 8, color: S.olive2 }}>{rolLabel}</div>
           </div>
           <button className="btn btn-g" style={{ fontSize: 9, padding: "5px 11px" }} onClick={handleLogout}>SALIR</button>
         </div>
@@ -236,15 +255,15 @@ export default function App() {
     </div>
   );
 
-  // âââ DONE SCREEN âââ
+  // ═══ DONE SCREEN ═══
   const Done = () => (
     <div className="au" style={{ maxWidth: 480, margin: "0 auto", padding: "100px 20px", textAlign: "center" }}>
-      <div style={{ fontSize: 44, marginBottom: 18, color: S.olive2 }}>â</div>
-      <h1 className="display" style={{ fontSize: 38, fontWeight: 300, marginBottom: 12, color: S.chalk }}>DiagnÃ³stico Completado</h1>
+      <div style={{ fontSize: 44, marginBottom: 18, color: S.olive2 }}>◎</div>
+      <h1 className="display" style={{ fontSize: 38, fontWeight: 300, marginBottom: 12, color: S.chalk }}>Diagnóstico Completado</h1>
       <div style={{ width: 32, height: 1, background: S.olive, margin: "0 auto 18px" }} />
-      <p style={{ fontSize: 15, color: S.g1, lineHeight: 1.75, marginBottom: 32 }}>Gracias, <strong style={{ color: S.chalk }}>{info.nombre}</strong>. Tu perfil y diagnÃ³stico fueron registrados exitosamente.</p>
+      <p style={{ fontSize: 15, color: S.g1, lineHeight: 1.75, marginBottom: 32 }}>Gracias, <strong style={{ color: S.chalk }}>{info.nombre}</strong>. Tu perfil y diagnóstico fueron registrados exitosamente.</p>
       <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-        <button className="btn btn-p" onClick={() => setFase("dash")}>VER DASHBOARD â</button>
+        {canSeeDashboard && <button className="btn btn-p" onClick={() => setFase("dash")}>VER DASHBOARD →</button>}
         <button className="btn btn-g" onClick={resetForm}>+ NUEVO COLABORADOR</button>
       </div>
     </div>
@@ -253,15 +272,23 @@ export default function App() {
   return (
     <>
       <Head>
-        <title>DiagnÃ³stico Organizacional â Aliah Developments</title>
-        <meta name="description" content="Sistema de diagnÃ³stico organizacional para levantamiento de procesos y estructura" />
+        <title>Diagnóstico Organizacional — Aliah Developments</title>
+        <meta name="description" content="Sistema de diagnóstico organizacional para levantamiento de procesos y estructura" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>â</text></svg>" />
+        <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◈</text></svg>" />
       </Head>
       <style>{css}</style>
       <div style={{ minHeight: "100vh", background: S.bg }}>
         {!user ? (
-          <Login onLogin={handleLogin} />
+          inviteCode ? (
+            <Register
+              inviteCode={inviteCode}
+              onRegistered={handleRegistered}
+              onBack={() => setInviteCode(null)}
+            />
+          ) : (
+            <Login onLogin={handleLogin} />
+          )
         ) : (
           <>
             <Header />
